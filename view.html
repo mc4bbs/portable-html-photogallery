@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Gallery</title>
+
+    <!-- Portable OpenGraph Meta Tags for Chat Link Previews -->
+    <meta property="og:title" content="Photo Gallery">
+    <meta property="og:description" content="Click to view photos and videos from this collection.">
+    <meta property="og:image" content=""> <!-- Will be filled by config or custom link -->
+    <meta property="og:type" content="website">
+
+    <style>
+        :root {
+            --bg-color: #0d0f12;
+            --panel-bg: #161920;
+            --panel-border: #232834;
+            --text-color: #e6e8ec;
+            --text-muted: #8b949e;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .site-header {
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(22, 25, 32, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .site-branding {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .site-branding span { color: var(--text-muted); font-weight: 400; }
+
+        .main-container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem;
+            flex: 1;
+        }
+
+        .gallery-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .gallery-header h1 {
+            font-size: 2.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .gallery-header p { color: var(--text-muted); font-size: 0.95rem; }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .media-card {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 1 / 1;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .media-card:hover { transform: translateY(-3px); }
+
+        .media-card img, .media-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .video-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        /* Pagination Controls */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 2.5rem;
+        }
+
+        .page-btn {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-color);
+            padding: 0.6rem 1.25rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: #1e222d;
+            border-color: var(--accent);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-family: var(--font-mono);
+        }
+
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.94);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .lightbox.active { opacity: 1; pointer-events: auto; }
+
+        .lightbox-content img, .lightbox-content video {
+            max-width: 90vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .lightbox-close, .lightbox-nav {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox-close { top: 20px; right: 20px; width: 44px; height: 44px; font-size: 1.5rem; z-index: 1010; }
+        .lightbox-nav { top: 50%; transform: translateY(-50%); width: 50px; height: 50px; font-size: 1.25rem; }
+        .lightbox-prev { left: 20px; }
+        .lightbox-next { right: 20px; }
+
+        .lightbox-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .status-message {
+            text-align: center;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+            padding: 3rem 0;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        footer {
+            border-top: 1px solid var(--panel-border);
+            text-align: center;
+            padding: 2.5rem 1.5rem;
+            background: var(--panel-bg);
+            margin-top: 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .btn-return {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: #090a0d;
+            text-decoration: none;
+            padding: 0.85rem 1.75rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        .btn-return:hover { background: var(--accent-hover); color: #fff; }
+        .footer-copy { color: var(--text-muted); font-size: 0.85rem; font-family: var(--font-mono); }
+    </style>
+</head>
+<body>
+
+    <header class="site-header">
+        <a href="#" id="brandLink" class="site-branding"><span id="brandText">Gallery</span></a>
+    </header>
+
+    <main class="main-container">
+        <div class="gallery-header">
+            <h1 id="galleryTitle">Gallery</h1>
+            <p id="gallerySubtitle">Loading media...</p>
+        </div>
+        
+        <div class="gallery-grid" id="galleryGrid">
+            <div class="status-message">Initializing directory scanner...</div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination" id="paginationContainer" style="display: none;">
+            <button class="page-btn" id="prevPageBtn" onclick="changePage(-1)">← Previous</button>
+            <span class="page-info" id="pageInfo">Page 1 of 1</span>
+            <button class="page-btn" id="nextPageBtn" onclick="changePage(1)">Next →</button>
+        </div>
+    </main>
+
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightboxClose">×</button>
+        <button class="lightbox-nav lightbox-prev" id="lightboxPrev">❮</button>
+        <button class="lightbox-nav lightbox-next" id="lightboxNext">❯</button>
+        <div class="lightbox-content" id="lightboxContent"></div>
+        <div class="lightbox-counter" id="lightboxCounter"></div>
+    </div>
+
+    <footer>
+        <a href="#" id="returnBtn" class="btn-return">← Return Home</a>
+        <div class="footer-copy" id="footerCopy">© Gallery</div>
+    </footer>
+
+    <script>
+        // ==============================
+        // USER CONFIGURATION (Customize)
+        // ==============================
+        const CONFIG = {
+            siteName: "sitename.com",                          // Your main site name or domain
+            homeUrl: "https://sitename.com",                   // Where the return button leads
+            defaultOgImage: "https://sitename.com/preview.jpg" // Preview thumbnail
+        };
+
+        // Apply configuration to DOM immediately
+        document.getElementById('brandLink').href = CONFIG.homeUrl;
+        document.getElementById('brandText').textContent = ` / photos`;
+        document.getElementById('returnBtn').href = CONFIG.homeUrl;
+        document.getElementById('returnBtn').innerHTML = `← Return to ${CONFIG.siteName}`;
+        document.getElementById('footerCopy').textContent = `© ${CONFIG.siteName}`;
+        
+        // Set dynamic OpenGraph image if empty
+        let ogImageMeta = document.querySelector('meta[property="og:image"]');
+        if (ogImageMeta && !ogImageMeta.content) {
+            ogImageMeta.content = CONFIG.defaultOgImage;
+        }
+
+        // ==========================================
+        // GALLERY ENGINE
+        // ==========================================
+        let mediaFiles = [];
+        let currentPage = 1;
+        const itemsPerPage = 48;
+        let currentIndex = 0;
+
+        const galleryTitle = document.getElementById('galleryTitle');
+        const gallerySubtitle = document.getElementById('gallerySubtitle');
+        const galleryGrid = document.getElementById('galleryGrid');
+        const paginationContainer = document.getElementById('paginationContainer');
+        const pageInfo = document.getElementById('pageInfo');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+
+        const imageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic'];
+        const videoExts = ['mp4', 'webm', 'mov', 'm4v', 'ogg'];
+
+        async function init() {
+            const pathSegments = window.location.pathname.split('/').filter(Boolean);
+            let folderName = "Photo Gallery";
+            
+            if (pathSegments.length > 0) {
+                let lastSeg = pathSegments[pathSegments.length - 1];
+                if (lastSeg.toLowerCase() === 'view.html') {
+                    folderName = pathSegments[pathSegments.length - 2] || folderName;
+                } else {
+                    folderName = lastSeg;
+                }
+            }
+
+            folderName = decodeURIComponent(folderName);
+            galleryTitle.textContent = folderName;
+            document.title = `${folderName} — ${CONFIG.siteName}`;
+
+            try {
+                const response = await fetch('./');
+                if (!response.ok) throw new Error(`Server returned status ${response.status}`);
+
+                const htmlText = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const links = Array.from(doc.querySelectorAll('a'));
+
+                mediaFiles = [];
+                const seen = new Set();
+
+                links.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (!href) return;
+
+                    const cleanHref = href.split('?')[0].split('#')[0];
+                    const fileName = decodeURIComponent(cleanHref.split('/').pop());
+                    const ext = fileName.split('.').pop().toLowerCase();
+
+                    if (cleanHref === './' || cleanHref === '../' || fileName.toLowerCase().includes('view.html') || !fileName.includes('.')) {
+                        return;
+                    }
+
+                    if ((imageExts.includes(ext) || videoExts.includes(ext)) && !seen.has(fileName)) {
+                        seen.add(fileName);
+                        mediaFiles.push({
+                            url: cleanHref,
+                            name: fileName,
+                            type: imageExts.includes(ext) ? 'image' : 'video'
+                        });
+                    }
+                });
+
+                mediaFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+                if (mediaFiles.length === 0) {
+                    gallerySubtitle.textContent = "0 items found";
+                    galleryGrid.innerHTML = `<div class="status-message">No media files matched in this directory.</div>`;
+                    return;
+                }
+
+                gallerySubtitle.textContent = `${mediaFiles.length} item${mediaFiles.length === 1 ? '' : 's'} total`;
+                renderPage();
+
+            } catch (err) {
+                console.error("Gallery Error:", err);
+                gallerySubtitle.textContent = "Access Restricted";
+                galleryGrid.innerHTML = `
+                    <div class="status-message" style="text-align: left; max-width: 600px; margin: 0 auto; background: var(--panel-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--panel-border);">
+                        <strong style="color: #ef4444; display: block; margin-bottom: 0.5rem;">Server Autoindex is Disabled</strong>
+                        Your web server blocks browsing directory contents via JavaScript for security.
+                    </div>`;
+            }
+        }
+
+        function renderPage() {
+            const totalPages = Math.ceil(mediaFiles.length / itemsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageItems = mediaFiles.slice(start, end);
+
+            galleryGrid.innerHTML = '';
+            pageItems.forEach((media, index) => {
+                const globalIndex = start + index;
+                const card = document.createElement('div');
+                card.className = 'media-card';
+                card.onclick = () => openLightbox(globalIndex);
+
+                if (media.type === 'image') {
+                    card.innerHTML = `<img src="${media.url}" alt="${media.name}" loading="lazy">`;
+                } else {
+                    card.innerHTML = `
+                        <video src="${media.url}#t=0.001" preload="metadata" muted></video>
+                        <div class="video-badge">▶ Video</div>
+                    `;
+                }
+                galleryGrid.appendChild(card);
+            });
+
+            if (mediaFiles.length > itemsPerPage) {
+                paginationContainer.style.display = 'flex';
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+                prevPageBtn.disabled = currentPage === 1;
+                nextPageBtn.disabled = currentPage === totalPages;
+            } else {
+                paginationContainer.style.display = 'none';
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function changePage(direction) {
+            currentPage += direction;
+            renderPage();
+        }
+
+        const lightbox = document.getElementById('lightbox');
+        const lightboxContent = document.getElementById('lightboxContent');
+        const lightboxClose = document.getElementById('lightboxClose');
+        const lightboxPrev = document.getElementById('lightboxPrev');
+        const lightboxNext = document.getElementById('lightboxNext');
+        const lightboxCounter = document.getElementById('lightboxCounter');
+
+        function openLightbox(index) {
+            currentIndex = index;
+            updateLightbox();
+            lightbox.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = '';
+            lightboxContent.innerHTML = '';
+        }
+
+        function updateLightbox() {
+            const media = mediaFiles[currentIndex];
+            lightboxContent.innerHTML = '';
+
+            if (media.type === 'image') {
+                const img = document.createElement('img');
+                img.src = media.url;
+                img.alt = media.name;
+                lightboxContent.appendChild(img);
+            } else {
+                const video = document.createElement('video');
+                video.src = media.url;
+                video.controls = true;
+                video.autoplay = true;
+                lightboxContent.appendChild(video);
+            }
+
+            lightboxCounter.textContent = `${currentIndex + 1} of ${mediaFiles.length} — ${media.name}`;
+        }
+
+        function nextMedia() {
+            currentIndex = (currentIndex + 1) % mediaFiles.length;
+            currentPage = Math.floor(currentIndex / itemsPerPage) + 1;
+            renderPage();
+            updateLightbox();
+        }
+
+        function prevMedia() {
+            currentIndex = (currentIndex - 1 + mediaFiles.length) % mediaFiles.length;
+            currentPage = Math.floor(currentIndex / itemsPerPage) + 1;
+            renderPage();
+            updateLightbox();
+        }
+
+        lightboxClose.onclick = closeLightbox;
+        lightboxNext.onclick = nextMedia;
+        lightboxPrev.onclick = prevMedia;
+        lightbox.onclick = (e) => { if (e.target === lightbox) closeLightbox(); };
+
+        document.addEventListener('keydown', (e) => {
+            if (!lightbox.classList.contains('active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowRight') nextMedia();
+            if (e.key === 'ArrowLeft') prevMedia();
+        });
+
+        init();
+    </script>
+</body>
+</html>
