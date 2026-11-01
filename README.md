@@ -13,9 +13,12 @@ Designed for self-hosted servers with directory auto-indexing disabled, it allow
 * **Fully Configurable:** Easily customizable branding, return links, and default preview imagery.
 
 ## 🚀 Quick Start
-1. Drop `view.html` into any directory containing images or videos.
+1. Customize the `CONFIG` object at the bottom of the script to match your domain and preferred preview image.
+2. Drop `view.html` into any directory containing images or videos.
 2. Open the file in your browser or share the link (e.g., `https://yourdomain.com/photos/your-folder/view.html`).
-3. Customize the `CONFIG` object at the bottom of the script to match your domain and preferred preview image.
+
 
 ## 📄 License
 MIT License
+
+This was created with the assistance of AI
